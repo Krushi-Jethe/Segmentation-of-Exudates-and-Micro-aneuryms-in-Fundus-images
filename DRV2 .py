@@ -194,7 +194,6 @@ class increase_data():
             for i in range(len(self.X_train)):
             
                 bgr_image = cv2.cvtColor(self.X_train[i], cv2.COLOR_RGB2BGR)
-#                 bgr_mask = cv2.cvtColor(self.Y_train[i], cv2.COLOR_RGB2BGR)
 
                 cv2.imwrite(os.path.join(path, 'images', f'{i}.jpg'), bgr_image)
                 cv2.imwrite(os.path.join(path, 'masks', f'{i}.jpg'), self.Y_train[i])
@@ -222,7 +221,30 @@ from datetime import datetime
 import tensorflow as tf
                     
 class config_exp():
+    '''
+    SAMPLE CONFIGURATION TO BE PASSED FOR TRAINING
+
+    config = {
+            'data': 'Original'  -- (Original or preprocessed)
+            'batch_size':16,
+            'backbone':'ResNet50', 
+            'batch_norm':True,
+            'loss': unified_focal_loss,
+            'lr':1e-4,
+            'epochs':100,
+            'callbacks': [early_stopping , reduce_lr_on_plateau , None]
+            }
+            
+    exp_1 = config_exp(**config_1)
+    exp_1.run(X_train, Y_train,(X_val,Y_val))
+    exp_1.plot_pred(X_test, Y_test, 'idrid') 
+    exp_1.calc_IoU(X_test, Y_test, 'idrid')
+    exp_1.calc_classification_report(X_test, Y_test, 'idrid')
+    
+    '''
     def __init__(self, data, batch_size, backbone, batch_norm, loss, lr, epochs, callbacks):
+
+        
         self.data = data
         self.batch_size = batch_size
         self.backbone = backbone
@@ -290,8 +312,6 @@ class config_exp():
         execution_time_att_Unet = stop3 - start3
         print("Attention UNet execution time is: ", execution_time_att_Unet)
 
-        # Save model
-        # model.save('E:/MIT_projects/experiments/' + self.dir_ + '/model.keras')
 
         # Define the path where you want to save the pickled file
         history_path = '/content/drive/MyDrive/DRV2/' + self.data + '/experiments/' + self.dir_ + '/history.pkl'

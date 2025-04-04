@@ -7,21 +7,23 @@ from tqdm import tqdm
 from utils import get_data_paths
 from processor import ImageProcessor
 
-data_paths = get_data_paths()
-img_processor = ImageProcessor()
 
+def main():
+    """
+    Docstring Placeholder.
+    """
+    data_paths = get_data_paths()
+    img_processor = ImageProcessor()
 
-for dataset, paths in data_paths.items():
-    if dataset == "e_ophtha":
+    for dataset, paths in data_paths.items():
         metrics_dict = {
             "psnr": [],
             "corr": [],
             "epi": [],
-            "entropy": [],
             "ssim": [],
         }
-        for idx, path in tqdm(enumerate(paths), total=len(paths)):
-            img_processor.run(path, "salt_pepper")
+        for path in tqdm(paths, total=len(paths)):
+            img_processor.run(path)
 
             for key, value in metrics_dict.items():
                 value.append(img_processor.metrics[key])
@@ -35,3 +37,7 @@ for dataset, paths in data_paths.items():
         print(f"Printing metrics for {dataset} dataset")
         for key, value in metrics_mean_dict.items():
             print(f"{key}: {value}")
+
+
+if __name__ == "__main__":
+    main()

@@ -26,7 +26,12 @@ class ImageProcessor:
 
     def run(self, path: str, noise_type: Optional[str] = None, **kwargs) -> None:
         """
-        Calls process and eval to process the image and evaluate metrics
+        Calls process and evaluate to process the image and calculate metrics.
+
+        Args:
+            path (str): path to the image
+            noise_type (Optional[str], optional): Type of noise to inject (gaussian 
+                                                  or salt_pepper). Defaults to None.
         """
         self.process(path, noise_type, **kwargs)
         self.evaluate(self.img_gray, self.processed_imgs)
@@ -34,13 +39,25 @@ class ImageProcessor:
     def add_noise(self, img: np.ndarray, noise_type: str, **kwargs) -> np.ndarray:
         """
         Injects noise into the given image.
+
+        Args:
+            img (np.ndarray): The input image to which noise should be added.
+            noise_type (str): Type of noise to inject (gaussian or salt_pepper)
+
+        Raises:
+            ValueError: If noise_type isn't gaussian or salt_pepper.
+
+        Returns:
+            np.ndarray: Image injected with noise.
         """
+
         noise_type = noise_type.lower()  # Case-insensitive handling
 
         if noise_type == "salt_pepper":
             percentage = float(kwargs.get("percentage", 0.10))
             noise = salt_pepper_noise(img, percentage).astype(np.uint8)
-            img = cv2.add(img, noise)  # Uses OpenCV for robustness
+            noise = np.expand_dims(noise, axis=-1)
+            img = np.clip(img + noise, 0, 255).astype(np.uint8)
             self.noise_config = {"noise_type": noise_type, "percentage": percentage}
         elif noise_type == "gaussian":
             mean = float(kwargs.get("mean", 1))
@@ -63,25 +80,28 @@ class ImageProcessor:
     def process(self, path: str, noise_type: Optional[str] = None, **kwargs) -> list:
         """
         Processes the images and forms various combinations.
+
+        Args:
+            path (str): path to the image
+            noise_type (Optional[str], optional): Type of noise to inject (gaussian or salt_pepper).
+                                                  Defaults to None.
+
+        Returns:
+            list: Contains 6 processed images.
         """
         img = cv2.imread(path)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        img_noisy = self.add_noise(img, noise_type, **kwargs) if noise_type else img
 
-        if noise_type:
-            img_noisy = self.add_noise(img_gray, noise_type, **kwargs)
-        else:
-            img_noisy = img
+        img_gray = cv2.cvtColor(img_noisy, cv2.COLOR_RGB2GRAY)
 
         # 1. Gaussian filter ---> CLAHE --->  Unsharp-Mask
-        gaus_img = cv2.GaussianBlur(
-            img_noisy, (5, 5), 0, borderType=cv2.BORDER_CONSTANT
-        )
+        gaus_img = cv2.GaussianBlur(img_gray, (5, 5), 0, borderType=cv2.BORDER_CONSTANT)
         hist_equ = exposure.equalize_adapthist(gaus_img)
         unsharp_bilat = unsharp_mask(hist_equ, radius=7, amount=2)
 
         # 2. Split channels ---> Median Blur 2x ---> CLAHE --->  Gamma filter
-        r, g, b = cv2.split(img)
+        r, g, b = cv2.split(img_noisy)
         img_med = cv2.medianBlur(g, 3)
         img_med_1 = cv2.medianBlur(img_med, 3)
         clahe = cv2.createCLAHE(clipLimit=2, tileGridSize=(8, 8))
@@ -113,6 +133,11 @@ class ImageProcessor:
     def evaluate(self, img_gray: np.array, permutations: list) -> None:
         """
         Calculates various metrics for processed image combinations.
+
+        Args:
+            img_gray (np.array): Grayscale image to calculate metrics.
+            permutations (list): The list of different combinations of images obtained
+                                 after running process method.
         """
         psnr_list = [
             EvalMetrics.calculate_psnr(img_gray, perm) for perm in permutations

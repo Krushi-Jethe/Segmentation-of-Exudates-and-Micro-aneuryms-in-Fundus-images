@@ -5,13 +5,14 @@ Main
 import random
 import numpy as np
 from tqdm import tqdm
-from utils import get_data_paths
+from .utils import get_data_paths
 from .processor import ImageProcessor
 
 SEED = 108
 
 random.seed(SEED)
 np.random.seed(SEED)
+
 
 def main():
     """

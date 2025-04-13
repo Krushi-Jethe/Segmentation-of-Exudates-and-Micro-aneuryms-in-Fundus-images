@@ -14,6 +14,7 @@ SEED = 108
 random.seed(SEED)
 np.random.seed(SEED)
 
+
 def get_data_paths() -> dict:
     """
     Retrieve paths to the images for the datasets IDRiD and e-ophtha

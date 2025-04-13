@@ -18,6 +18,7 @@ SEED = 108
 random.seed(SEED)
 np.random.seed(SEED)
 
+
 class ImageProcessor:
     """
     Class to process an image and compute evaluation metrics.
@@ -37,11 +38,13 @@ class ImageProcessor:
 
         Args:
             path (str): path to the image
-            noise_type (Optional[str], optional): Type of noise to inject (gaussian 
+            noise_type (Optional[str], optional): Type of noise to inject (gaussian
                                                   or salt_pepper). Defaults to None.
         """
         self.process(path, noise_type, **kwargs)
-        processed_imgs = [cv2.cvtColor(img, cv2.COLOR_RGB2GRAY) for img in self.processed_imgs]
+        processed_imgs = [
+            cv2.cvtColor(img, cv2.COLOR_RGB2GRAY) for img in self.processed_imgs
+        ]
         self.evaluate(self.img_gray, processed_imgs)
 
     def add_noise(self, img: np.ndarray, noise_type: str, **kwargs) -> np.ndarray:
@@ -63,7 +66,7 @@ class ImageProcessor:
 
         if noise_type == "salt_pepper":
             percentage = float(kwargs.get("percentage", 0.10))
-            noise = salt_pepper_noise(img, percentage) 
+            noise = salt_pepper_noise(img, percentage)
             noise = np.expand_dims(noise, axis=-1)
             img = np.clip(img + noise, 0, 255).astype(np.uint8)
             self.noise_config = {"noise_type": noise_type, "percentage": percentage}
@@ -170,14 +173,12 @@ class ImageProcessor:
             "epi": epi_list,
             "ssim": ssim_list,
         }
-        
-
 
     def plot(self) -> None:
         """
-        Plots the original image and the images obtained 
+        Plots the original image and the images obtained
         after processing.
-        """        
+        """
 
         original = self.img
         permutations = self.processed_imgs
@@ -185,7 +186,7 @@ class ImageProcessor:
 
         axes[0, 0].imshow(original)
         axes[0, 0].set_title("Original Image")
-        axes[0, 0].axis("off") 
+        axes[0, 0].axis("off")
 
         if self.img_noisy is not None:
             axes[0, 1].imshow(self.img_noisy)
@@ -194,7 +195,7 @@ class ImageProcessor:
         else:
             axes[0, 1].imshow(self.img_gray, cmap="gray")
             axes[0, 1].set_title("Grayscale Image")
-            axes[0, 1].axis("off") 
+            axes[0, 1].axis("off")
 
         permutation_labels = [
             "123",
@@ -210,7 +211,7 @@ class ImageProcessor:
             col = (i + 2) % 4
             axes[row, col].imshow(permutation)
             axes[row, col].set_title(f"Fused image - {permutation_labels[i]}")
-            axes[row, col].axis("off")  
+            axes[row, col].axis("off")
 
         plt.tight_layout()
         plt.show()

@@ -5,9 +5,14 @@ Evaluation metrics, path to the images and noise generation.
 """
 import os
 import glob
+import random
 import numpy as np
 from skimage.metrics import structural_similarity as ssim
 
+SEED = 108
+
+random.seed(SEED)
+np.random.seed(SEED)
 
 def get_data_paths() -> dict:
     """
@@ -18,7 +23,7 @@ def get_data_paths() -> dict:
         dict: Containing keys "IDRiD" and "e_ophtha" and values as list of paths.
     """
 
-    dataset_dir = os.path.expanduser("~/Documents/datasets")
+    dataset_dir = os.path.expanduser("/mnt/d/MIT_projects")
     idrid_dir = "A. Segmentation/1. Original Images"
     e_ophtha_dir = "e_ophtha_dataset-20230303T080518Z-001/e_ophtha_dataset"
 

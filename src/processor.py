@@ -4,13 +4,19 @@
 Algorithm
 """
 
+import random
 from typing import Optional
 import cv2
 import numpy as np
 from skimage import exposure
 from skimage.filters import unsharp_mask
-from utils import EvalMetrics, salt_pepper_noise
+from matplotlib import pyplot as plt
+from .utils import EvalMetrics, salt_pepper_noise
 
+SEED = 108
+
+random.seed(SEED)
+np.random.seed(SEED)
 
 class ImageProcessor:
     """
@@ -23,6 +29,7 @@ class ImageProcessor:
         self.processed_imgs = None
         self.metrics = None
         self.noise_config = None
+        self.img_noisy = None
 
     def run(self, path: str, noise_type: Optional[str] = None, **kwargs) -> None:
         """
@@ -34,7 +41,8 @@ class ImageProcessor:
                                                   or salt_pepper). Defaults to None.
         """
         self.process(path, noise_type, **kwargs)
-        self.evaluate(self.img_gray, self.processed_imgs)
+        processed_imgs = [cv2.cvtColor(img, cv2.COLOR_RGB2GRAY) for img in self.processed_imgs]
+        self.evaluate(self.img_gray, processed_imgs)
 
     def add_noise(self, img: np.ndarray, noise_type: str, **kwargs) -> np.ndarray:
         """
@@ -55,13 +63,13 @@ class ImageProcessor:
 
         if noise_type == "salt_pepper":
             percentage = float(kwargs.get("percentage", 0.10))
-            noise = salt_pepper_noise(img, percentage).astype(np.uint8)
+            noise = salt_pepper_noise(img, percentage) 
             noise = np.expand_dims(noise, axis=-1)
             img = np.clip(img + noise, 0, 255).astype(np.uint8)
             self.noise_config = {"noise_type": noise_type, "percentage": percentage}
         elif noise_type == "gaussian":
-            mean = float(kwargs.get("mean", 1))
-            variance = float(kwargs.get("variance", 0))
+            mean = float(kwargs.get("mean", 0))
+            variance = float(kwargs.get("variance", 1))
             stddev = np.sqrt(variance)
             gaussian_noise = np.random.normal(mean, stddev, img.shape).astype(np.uint8)
             img = cv2.add(img, gaussian_noise)
@@ -118,16 +126,17 @@ class ImageProcessor:
         d1, d2, d3 = cv2.split(final_img)
 
         permutations = [
-            cv2.cvtColor(cv2.merge((d1, d2, d3)).astype(np.uint8), cv2.COLOR_RGB2GRAY),
-            cv2.cvtColor(cv2.merge((d1, d3, d2)).astype(np.uint8), cv2.COLOR_RGB2GRAY),
-            cv2.cvtColor(cv2.merge((d2, d1, d3)).astype(np.uint8), cv2.COLOR_RGB2GRAY),
-            cv2.cvtColor(cv2.merge((d2, d3, d1)).astype(np.uint8), cv2.COLOR_RGB2GRAY),
-            cv2.cvtColor(cv2.merge((d3, d1, d2)).astype(np.uint8), cv2.COLOR_RGB2GRAY),
-            cv2.cvtColor(cv2.merge((d3, d2, d1)).astype(np.uint8), cv2.COLOR_RGB2GRAY),
+            cv2.merge((d1, d2, d3)).astype(np.uint8),
+            cv2.merge((d1, d3, d2)).astype(np.uint8),
+            cv2.merge((d2, d1, d3)).astype(np.uint8),
+            cv2.merge((d2, d3, d1)).astype(np.uint8),
+            cv2.merge((d3, d1, d2)).astype(np.uint8),
+            cv2.merge((d3, d2, d1)).astype(np.uint8),
         ]
 
         self.img = img
         self.img_gray = img_gray
+        self.img_noisy = img_noisy if noise_type else None
         self.processed_imgs = permutations
 
     def evaluate(self, img_gray: np.array, permutations: list) -> None:
@@ -161,3 +170,47 @@ class ImageProcessor:
             "epi": epi_list,
             "ssim": ssim_list,
         }
+        
+
+
+    def plot(self) -> None:
+        """
+        Plots the original image and the images obtained 
+        after processing.
+        """        
+
+        original = self.img
+        permutations = self.processed_imgs
+        fig, axes = plt.subplots(2, 4, figsize=(15, 5))
+
+        axes[0, 0].imshow(original)
+        axes[0, 0].set_title("Original Image")
+        axes[0, 0].axis("off") 
+
+        if self.img_noisy is not None:
+            axes[0, 1].imshow(self.img_noisy)
+            axes[0, 1].set_title("Noisy Image")
+            axes[0, 1].axis("off")
+        else:
+            axes[0, 1].imshow(self.img_gray, cmap="gray")
+            axes[0, 1].set_title("Grayscale Image")
+            axes[0, 1].axis("off") 
+
+        permutation_labels = [
+            "123",
+            "132",
+            "213",
+            "231",
+            "312",
+            "321",
+        ]
+
+        for i, permutation in enumerate(permutations):
+            row = (i + 2) // 4
+            col = (i + 2) % 4
+            axes[row, col].imshow(permutation)
+            axes[row, col].set_title(f"Fused image - {permutation_labels[i]}")
+            axes[row, col].axis("off")  
+
+        plt.tight_layout()
+        plt.show()

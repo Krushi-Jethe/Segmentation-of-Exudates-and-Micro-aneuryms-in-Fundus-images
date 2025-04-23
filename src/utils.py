@@ -1,4 +1,4 @@
-# pylint: disable=no-name-in-module
+# pylint: disable=no-name-in-module, too-many-locals
 
 """
 Evaluation metrics, path to the images and noise generation.
@@ -6,6 +6,7 @@ Evaluation metrics, path to the images and noise generation.
 import os
 import glob
 import random
+import copy
 import numpy as np
 from skimage.metrics import structural_similarity as ssim
 
@@ -15,7 +16,7 @@ random.seed(SEED)
 np.random.seed(SEED)
 
 
-def get_data_paths() -> dict:
+def get_data_paths(objective: str) -> dict:
     """
     Retrieve paths to the images for the datasets IDRiD and e-ophtha
     and store them in a dictionary.
@@ -25,11 +26,18 @@ def get_data_paths() -> dict:
     """
 
     dataset_dir = os.path.expanduser("/mnt/d/MIT_projects")
-    idrid_dir = "A. Segmentation/1. Original Images"
+    idrid_dir = "A. Segmentation"
     e_ophtha_dir = "e_ophtha_dataset-20230303T080518Z-001/e_ophtha_dataset"
+    template = {
+        "train": {"EX": {"images": [], "masks": []}, "MA": {"images": [], "masks": []}},
+        "val": {"EX": {"images": [], "masks": []}, "MA": {"images": [], "masks": []}},
+        "test": {"EX": {"images": [], "masks": []}, "MA": {"images": [], "masks": []}},
+    }
 
     #############################################
     # e_Ophtha
+    e_ophtha = copy.deepcopy(template)
+
     ex_images = glob.glob(
         os.path.join(dataset_dir, e_ophtha_dir, "e_ophtha_EX/e_optha_EX/EX/*/*")
     )
@@ -41,16 +49,96 @@ def get_data_paths() -> dict:
             dataset_dir, e_ophtha_dir, "e_ophtha_MA/e_optha_MA/MA/E0000043/Thumbs.db"
         )
     )
+
+    ex_masks = glob.glob(
+        os.path.join(
+            dataset_dir, e_ophtha_dir, "e_ophtha_EX/e_optha_EX/Annotation_EX/*/*"
+        )
+    )
+
+    ma_masks = glob.glob(
+        os.path.join(
+            dataset_dir, e_ophtha_dir, "e_ophtha_MA/e_optha_MA/Annotation_MA/*/*"
+        )
+    )
+    ma_masks.remove(
+        os.path.join(
+            dataset_dir,
+            e_ophtha_dir,
+            "e_ophtha_MA/e_optha_MA/Annotation_MA/E0000043/Thumbs.db",
+        )
+    )
+
+    e_ophtha["train"]["EX"] = {"images": ex_images[:30], "masks": ex_masks[:30]}
+    e_ophtha["val"]["EX"] = {"images": ex_images[30:37], "masks": ex_masks[30:37]}
+    e_ophtha["test"]["EX"] = {"images": ex_images[37:], "masks": ex_masks[37:]}
+
+    e_ophtha["train"]["MA"] = {"images": ma_images[:104], "masks": ma_masks[:104]}
+    e_ophtha["val"]["MA"] = {"images": ma_images[104:118], "masks": ma_masks[104:118]}
+    e_ophtha["test"]["MA"] = {"images": ma_images[118:], "masks": ma_masks[118:]}
     ##############################################
     # Idrid
-    train_imgs = glob.glob(os.path.join(dataset_dir, idrid_dir, "a. Training Set/*"))
-    test_imgs = glob.glob(os.path.join(dataset_dir, idrid_dir, "b. Testing Set/*"))
+    IDRiD = copy.deepcopy(template)
+
+    train_imgs = glob.glob(
+        os.path.join(dataset_dir, idrid_dir, "1. Original Images/a. Training Set/*")
+    )
+    test_imgs = glob.glob(
+        os.path.join(dataset_dir, idrid_dir, "1. Original Images/b. Testing Set/*")
+    )
+
+    train_masks_ma = glob.glob(
+        os.path.join(
+            dataset_dir,
+            idrid_dir,
+            "2. All Segmentation Groundtruths/a. Training Set/1. Microaneurysms/*",
+        )
+    )
+    test_masks_ma = glob.glob(
+        os.path.join(
+            dataset_dir,
+            idrid_dir,
+            "2. All Segmentation Groundtruths/b. Testing Set/1. Microaneurysms/*",
+        )
+    )
+
+    train_masks_ex = glob.glob(
+        os.path.join(
+            dataset_dir,
+            idrid_dir,
+            "2. All Segmentation Groundtruths/a. Training Set/3. Hard Exudates/*",
+        )
+    )
+    test_masks_ex = glob.glob(
+        os.path.join(
+            dataset_dir,
+            idrid_dir,
+            "2. All Segmentation Groundtruths/b. Testing Set/3. Hard Exudates/*",
+        )
+    )
+
+    IDRiD["train"]["EX"] = {"images": train_imgs[:44], "masks": train_masks_ex[:44]}
+    IDRiD["val"]["EX"] = {"images": train_imgs[44:], "masks": train_masks_ex[44:]}
+    IDRiD["test"]["EX"] = {"images": test_imgs, "masks": test_masks_ex}
+
+    IDRiD["train"]["MA"] = {"images": train_imgs[:44], "masks": train_masks_ma[:44]}
+    IDRiD["val"]["MA"] = {"images": train_imgs[44:], "masks": train_masks_ma[44:]}
+    IDRiD["test"]["MA"] = {"images": test_imgs, "masks": test_masks_ma}
+
     ###############################################
     # Complete dataset
     idrid_images = train_imgs + test_imgs
     e_ophtha_images = ex_images + ma_images
 
-    return {"IDRiD": idrid_images, "e_ophtha": e_ophtha_images}
+    if objective == "processing":
+        return {"IDRiD": idrid_images, "e_ophtha": e_ophtha_images}
+
+    if objective == "training":
+        return {"IDRiD": IDRiD, "e_ophtha": e_ophtha}
+
+    raise ValueError(
+        f"Incorrect value for param objective - {objective} can only be `processing` or `training`"
+    )
 
 
 def salt_pepper_noise(img: np.ndarray, percent: float) -> np.ndarray:
